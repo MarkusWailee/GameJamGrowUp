@@ -4,7 +4,7 @@
 #include <math/rect.h>
 
 
-namespace px
+namespace gj
 {
     //Shapes
     struct Circle
@@ -23,22 +23,28 @@ namespace px
             return;
         vec2 normal;
         float distance = 0;
+        float d[4]{};
+        d[0] = a.x + a.width - b.x;  //left
+        d[1] = b.x + b.width - a.x;  //right
+        d[2] = b.y + b.height - a.y;  //top
+        d[3] = a.y + a.height - b.y;  //bottom
 
-        vec2 a_mid = vec2(a.x, a.y) + vec2(a.width, a.height) * 0.5f;
-        vec2 b_mid = vec2(b.x, b.y) + vec2(b.width, b.height) * 0.5f;
-        vec2 axis = b_mid - a_mid;
-        if(abs(axis.x) > abs(axis.y)) //should move on x axis
+        int smallest = 0;
+        for(int i = 0; i < 4; i++)
         {
-            normal.x = axis.x > 0? -1.0f : 1.0f;
-            distance = axis.x > 0? a.x + a.width - b.x: b.x + b.width - a.x;
-            callback(normal, distance);
+            if(d[i] < d[smallest])
+                smallest = i;
         }
-        else // should move on y axis
+        distance = d[smallest];
+        switch(smallest)
         {
-            normal.y = axis.y > 0? -1.0f : 1.0f;
-            distance = axis.y > 0? a.y + a.height - b.y: b.y + b.height - a.y;
-            callback(normal, distance);
+            case 0: callback(vec2(-1, 0), distance); break; //left
+            case 1: callback(vec2(1, 0), distance); break; //left
+            case 2: callback(vec2(0, 1), distance); break; //top
+            case 3: callback(vec2(0, -1), distance); break; //bottom
         }
+
+
     }
 
     template<typename Func>

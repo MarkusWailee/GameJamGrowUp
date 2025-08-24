@@ -1,15 +1,12 @@
 #include <raylib/raylib.h>
 #include <raylib/rlgl.h>
 
-#include "physics.h"
-#include "graphics.h"
-
+#include "GameJam.h"
+#include "math/vec.h"
 int main(void)
 {
     float screenWidth = 960;
     float screenHeight = 600;
-
-
 
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
@@ -21,16 +18,30 @@ int main(void)
     Camera2D camera{};
     camera.zoom = 1;
 
-    float tex[200 * 200]{};
-    for(int i = 0; i < 200 * 200; i++)
-    {
-        tex[i] = 0.5f;
-    }
 
+    gj::EntityManager<64> manager;
 
-    //Texture2D texture = LoadTextureFromImage(image);
-    Image image = LoadImage("assets/texture/FinnSprite.png");
-    gx::Texture texture(tex, 200, 200, PIXELFORMAT_UNCOMPRESSED_R32);
+    gj::Entity temp;
+    temp.AddComponentVisible();
+    temp.color = {255, 255, 0, 255};
+    temp.AddComponentCollision(GetScreenWidth(), 10);
+
+    //top
+    temp.pos = vec2(0, 10);
+    manager.AddEntity(temp);
+
+    //bottom
+    temp.pos = vec2(0, GetScreenHeight() - 20);
+    manager.AddEntity(temp);
+
+    //left
+    temp.width = 10;
+    temp.height = GetScreenHeight();
+    temp.pos = vec2(0, 0);
+    manager.AddEntity(temp);
+
+    temp.pos = vec2(GetScreenWidth()-20, 0);
+    manager.AddEntity(temp);
 
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
@@ -39,33 +50,58 @@ int main(void)
         if(IsKeyDown(KEY_A))
             camera.offset.x -= GetFrameTime() * 100;
 
+        if(IsKeyPressed(KEY_F))
+        {
+            gj::Entity e;
+            e.AddComponentVisible();
+            e.color = {255, 0, 0, 255};
+            e.pos = vec2(GetRandomValue(0, 400), GetRandomValue(0, 400));
+            e.AddComponentLifetime(10);
+            e.AddComponentPhysics(vec2(0, 100), 1.f);
+            e.AddComponentCollision(100, 100);
+            manager.AddEntity(e);
+        }
+
+        if(IsKeyPressed(KEY_SPACE))
+        {
+            gj::Entity e;
+            e.AddComponentVisible();
+            e.color = {255, 255, 255, 255};
+            e.pos = vec2(GetScreenWidth()/2, GetScreenHeight()/2);
+            e.AddComponentLifetime(5);
+            e.AddComponentPhysics(vec2(50, 59), 1.f);
+            e.AddComponentCollision(10, 10);
+            e.vel = vec2(GetMouseX(), GetMouseY()) - e.pos;
+            e.vel = normalize(e.vel) * 700;
+            manager.AddEntity(e);
+
+        }
 
 
         BeginDrawing();
         ClearBackground(Color{0, 0, 0, 255});
 
-        px::Rect a = {(float)GetMouseX(), (float)GetMouseY(), 100, 100};
-        px::Rect b = {200, 200, 100, 100};
+        manager.UpdateAll();
+
+        manager.DrawEntities();
+        gj::Rect a = {(float)GetMouseX(), (float)GetMouseY(), 100, 100};
+        gj::Rect b = {200, 200, 300, 30};
         DrawRectangleLines(a.x, a.y, a.width, a.height, WHITE);
         DrawRectangleLines(b.x, b.y, b.width, b.height, WHITE);
 
-        px::CollideShape(a, b, [&](vec2 normal, float distance)
+        gj::CollideShape(a, b, [&](vec2 normal, float distance)
         {
             vec2 result = vec2(a.x, a.y) + normal * distance;
             DrawRectangleLines(result.x, result.y, a.width, a.height, GREEN);
         });
 
-        // gx::Circle c1 = {300, 300, 100};
-        // gx::Circle c2 = {(float)GetMouseX(), (float)GetMouseY(), 200};
-        //
-        // DrawCircle(c1.x, c1.y, c1.r, WHITE);
-        // DrawCircle(c2.x, c2.y, c2.r, WHITE);
-        // gx::CollideShape(c1, c2, [&](vec2 normal, float distance)
-        // {
-        //     vec2 result = vec2(c1.x, c1.y) + normal * distance;
-        //     DrawCircle(result.x, result.y, c1.r, GREEN);
-        // });
-
+        vec2 p = {400, 400};
+        vec2 A = vec2(GetMouseX(), GetMouseY()) - p;
+        vec2 B = vec2(0, -100);
+        vec2 C = project(A, B);
+        DrawLine(p.x, p.y, p.x + A.x, p.y + A.y, WHITE);
+        DrawLine(p.x, p.y, p.x + B.x, p.y + B.y, WHITE);
+        DrawLine(p.x, p.y, p.x + C.x, p.y + C.y, RED);
 
         // shader.Start([&]{
         //     BeginMode2D(camera);

@@ -641,6 +641,11 @@ inline vector2<float> floor(const vector2<float>& v) {return vector2<float>(floo
 inline vector3<float> floor(const vector3<float>& v) {return vector3<float>(floorf(v.x), floorf(v.y), floorf(v.z));}
 inline vector4<float> floor(const vector4<float>& v) {return vector4<float>(floorf(v.x), floorf(v.y), floorf(v.z), floorf(v.w));}
 
+//a onto b
+inline vector2<float> project(vector2<float> a, vector2<float> b)
+{
+    return dot(a, b) / dot(b, b) * b;
+}
 
 //NONMEMBER
 template<typename T>
