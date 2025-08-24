@@ -575,6 +575,18 @@ inline T& vector4<T>::operator[](const int index)
 
 
 //Other Operations
+inline float sign(float x)
+{
+    if(x == 0.0f)
+        return 0;
+    return x < 0? -1.0f: 1.0f;
+}
+
+inline vector2<float> sign(vector2<float> v)
+{
+    return {sign(v.x), sign(v.y)};
+}
+
 template<typename T>
 inline T mix(T a, T b, float amount) { return a + amount * (b - a); }
 template <typename T>
@@ -640,6 +652,7 @@ inline vector4<float> normalize(const vector4<float>& v)
 inline vector2<float> floor(const vector2<float>& v) {return vector2<float>(floorf(v.x), floorf(v.y));}
 inline vector3<float> floor(const vector3<float>& v) {return vector3<float>(floorf(v.x), floorf(v.y), floorf(v.z));}
 inline vector4<float> floor(const vector4<float>& v) {return vector4<float>(floorf(v.x), floorf(v.y), floorf(v.z), floorf(v.w));}
+
 
 //a onto b
 inline vector2<float> project(vector2<float> a, vector2<float> b)

@@ -47,6 +47,8 @@ namespace gx
     };
 
 
+
+
     inline Shader::Shader(const char* vert, const char* frag)
     {
         shader = LoadShader(vert, frag);
