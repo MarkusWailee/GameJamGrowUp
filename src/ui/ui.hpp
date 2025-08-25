@@ -5,7 +5,7 @@
 
 
 //it is recommended to double the memory when debug is enabled
-#define UI_ENABLE_DEBUG 1
+#define UI_ENABLE_DEBUG 0
 
 #if UI_ENABLE_DEBUG
     #if __cplusplus >= 202002L
@@ -700,11 +700,11 @@ namespace UI
             {59, 59, 59, 255}, //info_box_color
             {255, 230, 230, 255}, //invalid_button
             {200, 200, 200, 255}, //title_bar_color;
-            RGBAToHex({38, 38, 38, 255}),//text_color;
-            RGBAToHex({253, 253, 253, 255}),//text_color_hover;
-            RGBAToHex({70, 188, 70, 255}), //string_color;
-            RGBAToHex({220, 173, 48, 255}), //id_text_color;
-            RGBAToHex({200, 200, 200, 255}), //info_text_color
+            "000000",
+            "000000",
+            "000000",           
+            "000000",           
+            "000000",
             {10, 10, 10, 10}, //base_padding
             16, //base_corner_radius;
             3,  //icon_corner_radius;

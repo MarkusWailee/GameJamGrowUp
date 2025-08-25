@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
 set(CMAKE_CXX_STANDARD 20) # c++ version
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-project(example)
+project(GrowRush)
 
 # Generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -33,7 +33,7 @@ file(GLOB_RECURSE SOURCES ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/assets $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets)
 
 
