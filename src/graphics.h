@@ -14,6 +14,7 @@ namespace gx
         ::Shader shader;
         int GetLocation(const std::string& loc);
     public:
+        void InitShader(const char* vert, const char* frag);
         template<typename Func>
         void Start(Func&& func);
         void Begin();
@@ -29,7 +30,6 @@ namespace gx
         void SetIvec3(ivec4 v, const std::string& loc);           // Shader uniform type: ivec3 (3 int)
         void SetIvec4(ivec4 v, const std::string& loc);           // Shader uniform type: ivec4 (4 int)
         void SetSampler2D(::Texture tex, const std::string& loc);        // Shader uniform type: sampler2d
-        Shader(const char* vert, const char* frag);
         ~Shader();
     };
 
@@ -37,10 +37,8 @@ namespace gx
     {
         ::Texture texture{};
     public:
-        Texture();
-        Texture(Texture&& tex);
-        Texture(void* data, int width, int height, PixelFormat pixel_format);
-        Texture(const char* file);
+        void InitTexture(void* data, int width, int height, PixelFormat pixel_format);
+        void InitTexture(const char* file);
         ~Texture();
         void Update(const void* pixels);
         ::Texture GetTexture();
@@ -49,7 +47,7 @@ namespace gx
 
 
 
-    inline Shader::Shader(const char* vert, const char* frag)
+    inline void Shader::InitShader(const char* vert, const char* frag)
     {
         shader = LoadShader(vert, frag);
         assert(IsShaderValid(shader) && "Shader not valid");
@@ -151,29 +149,22 @@ namespace gx
 
 
 
-    inline Texture::Texture()
-    {
-
-    }
-    inline Texture::Texture(Texture&& tex)
-    {
-        this->texture = tex.GetTexture();
-        tex.texture = ::Texture{};
-    }
     inline Texture::~Texture()
     {
-        UnloadTexture(this->texture);
+        UnloadTexture(this->texture); // im assuming raylib checks
     }
-    inline Texture::Texture(void* data, int width, int height, PixelFormat pixel_format)
+    inline void Texture::InitTexture(void* data, int width, int height, PixelFormat pixel_format)
     {
         Image image;
         image.data = data;
         image.width = width;
         image.height = height;
         image.format = pixel_format;
+        image.mipmaps = 1;
         this->texture = LoadTextureFromImage(image);
+        assert(IsTextureValid(this->texture));
     }
-    inline Texture::Texture(const char* file)
+    inline void Texture::InitTexture(const char* file)
     {
         this->texture = LoadTexture(file);
     }

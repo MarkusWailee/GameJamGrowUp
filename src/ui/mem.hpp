@@ -1,28 +1,36 @@
 #pragma once
 
-#include <cstdint>
+#include <stdint.h>
 #include <cstring>
 #include <cassert>
-#include <type_traits>
 
 #include <chrono>
-
-namespace DS::Internal
+class StopWatch
 {
+public:
+    void Start()
+    {
+        start_time = std::chrono::high_resolution_clock::now();
+    }
 
+    double Stop()
+    {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double, std::milli> duration_ms = end_time - start_time;
+        return duration_ms.count(); // milliseconds as double
+    }
 
+private:
+    std::chrono::high_resolution_clock::time_point start_time;
+};
 
+namespace UI::Internal
+{
     template<typename T, unsigned int CAPACITY>
-    class FixedArray;
+    class Array;
 
     template<typename T, unsigned int CAPACITY>
     class FixedStack;
-
-    template<typename T, uint32_t CAPACITY>
-    class FixedQueue;
-
-    template<typename T>
-    class ArrayView;
 
     template<typename T>
     class Map;
@@ -39,33 +47,11 @@ namespace DS::Internal
     class ArenaDoubleBufferMap;
 }
 
-namespace DS::Internal
+//Stack allocated data structures
+namespace UI::Internal
 {
-    // ========== Useful Hash Functions ==========
-    constexpr uint64_t HashCombine(uint64_t seed, uint64_t value);
-    template<typename T>
-    constexpr typename std::enable_if<std::is_enum<T>::value, uint64_t>::type
-    CastToU64(T value);
-    template<typename T>
-    constexpr typename std::enable_if<std::is_integral<T>::value, uint64_t>::type
-    CastToU64(T value);
-    template<typename T>
-    typename std::enable_if<!std::is_integral<T>::value && !std::is_enum<T>::value, uint64_t>::type
-    CastToU64(T value);
-
-    template<typename T>
-    uint64_t Hash(T value);
-
-    uint64_t HashBytes(const void* src, uint64_t byte_count);
-    // ===========================================
-
-
-
-
-
-    //Stack allocated data structures
     template<typename T, unsigned int CAPACITY>
-    class FixedArray
+    class Array
     {
         T data[CAPACITY];
         public:
@@ -112,31 +98,6 @@ namespace DS::Internal
     };
 
     template<typename T>
-    class ArrayView
-    {
-    public:
-        bool IsEmpty() const;
-        uint64_t Size() const;
-        T& operator[](uint64_t index);
-        const T& operator[](uint64_t index) const;
-        T* data = nullptr;
-        uint64_t size = 0;
-    };
-
-    template<typename T>
-    class ArrayViewConst
-    {
-    public:
-        bool IsEmpty() const;
-        uint64_t Size() const;
-        T operator[](uint64_t index) const;
-        const T* data = nullptr;
-        uint64_t size = 0;
-    };
-
-
-
-    template<typename T>
     class Map
     {
     public:
@@ -148,6 +109,7 @@ namespace DS::Internal
         ~Map();
         void Free();
         void Clear();
+        void Grow();
         uint32_t Capacity() const;
         uint32_t Size() const;
         bool IsEmpty() const;
@@ -156,7 +118,6 @@ namespace DS::Internal
         void Remove(uint64_t key);
         bool ShouldResize() const;
     private:
-        void Grow();
         Item* data = nullptr;
         uint32_t capacity = 0;
         uint32_t size = 0;
@@ -166,7 +127,7 @@ namespace DS::Internal
     {
         char* data = nullptr;
         uint64_t capacity = 0;
-        uint64_t current_offset = 0;
+        uint64_t current_offset = 0; 
     public:
         MemoryArena(uint64_t cap);
         ~MemoryArena();
@@ -178,9 +139,6 @@ namespace DS::Internal
 
         template<typename T>
         T* NewArrayZero(uint64_t count);
-
-        template<typename T>
-        T* NewArrayCopy(const T* src, uint64_t count);
 
         template<typename T>
         T* New();
@@ -200,7 +158,7 @@ namespace DS::Internal
     class ArenaLL
     {
     public:
-        struct Node
+        struct Node 
         {
             Node* next = nullptr;
             T value;
@@ -216,7 +174,6 @@ namespace DS::Internal
         void Clear();
         bool PopHead();
         Node* GetHead();
-        Node* GetTail();
     };
 
 
@@ -233,7 +190,7 @@ namespace DS::Internal
             T value;
         };
         bool AllocateCapacity(uint32_t count, MemoryArena* arena);
-        void RewindArena(MemoryArena* arena);
+        void RewindArena(MemoryArena* arena); 
         T* Insert(uint64_t key, const T& value);
         T* GetValue(uint64_t key);
         void Reset();
@@ -252,7 +209,7 @@ namespace DS::Internal
     template<typename T>
     class ArenaDoubleBufferMap
     {
-
+    
         ArenaMap<T> front;
         ArenaMap<T> back;
     public:
@@ -269,83 +226,22 @@ namespace DS::Internal
 }
 
 
-namespace DS::Internal
+namespace UI::Internal
 {
-    // ============= Useful Hash functions ======================
-    template<typename T>
-    inline constexpr typename std::enable_if<std::is_enum<T>::value, uint64_t>::type
-    CastToU64(T value)
-    {
-        return (uint64_t)value;
-    }
-    template<typename T>
-    inline constexpr typename std::enable_if<std::is_integral<T>::value, uint64_t>::type
-    CastToU64(T value)
-    {
-        return (uint64_t)value;
-    }
-    template<typename T>
-    inline typename std::enable_if<!std::is_integral<T>::value && !std::is_enum<T>::value, uint64_t>::type
-    CastToU64(T value)
-    {
-        static_assert(sizeof(T) <= sizeof(uint64_t) && "Type cannot be larger than uint64_t");
-        uint64_t result = 0;
-        std::memcpy(&result, &value, sizeof(T));
-        return result;
-    }
-
-    template<typename T>
-    inline uint64_t Hash(T value)
-    {
-        assert(0 && "No hash function provided");
-        return 0;
-    }
-    inline constexpr uint64_t HashCombine(uint64_t seed, uint64_t value)
-    {
-        return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
-    }
-    inline uint64_t HashBytes(const void* src, uint64_t byte_count)
-    {
-        constexpr uint64_t FNV1_PRIME = 1099511628211ULL;
-        uint64_t size1 = byte_count & ~7;
-        uint64_t size2 = byte_count - size1;
-
-        const uint8_t* ptr = (const uint8_t*)src;
-        const uint8_t* ptr2 = ptr + size1;
-
-        uint64_t hash = 14695981039346656037ULL;
-        for(uint64_t i = 0; i < size1; i += 8)
-        {
-            uint64_t x = 0;
-            std::memcpy(&x, ptr + i, 8);
-            hash ^= x;
-            hash *= FNV1_PRIME;
-        }
-        for(uint64_t i = 0; i < size2; i++)
-        {
-            hash ^= ptr2[i];
-            hash *= FNV1_PRIME;
-        }
-        return hash;
-    }
-    // ========================================================
-
-
-
     //Array
     template<typename T, unsigned int CAPACITY>
-    inline unsigned int FixedArray<T, CAPACITY>::Capacity() const
+    inline unsigned int Array<T, CAPACITY>::Capacity() const
     {
         return CAPACITY;
     }
     template<typename T, unsigned int CAPACITY>
-    inline T& FixedArray<T, CAPACITY>::operator[](unsigned int index)
+    inline T& Array<T, CAPACITY>::operator[](unsigned int index) 
     {
         assert(index < CAPACITY);
         return data[index];
     }
     template<typename T, unsigned int CAPACITY>
-    inline T* FixedArray<T, CAPACITY>::Data()
+    inline T* Array<T, CAPACITY>::Data()
     {
         return data;
     }
@@ -373,7 +269,7 @@ namespace DS::Internal
     template<typename T, unsigned int CAPACITY>
     inline void FixedStack<T, CAPACITY>::Clear()
     {
-        size = 0;
+        size = 0; 
     }
     template<typename T, unsigned int CAPACITY>
     inline uint32_t FixedStack<T, CAPACITY>::Size() const
@@ -386,7 +282,7 @@ namespace DS::Internal
         return CAPACITY;
     }
     template<typename T, unsigned int CAPACITY>
-    inline T& FixedStack<T, CAPACITY>::operator[](unsigned int index)
+    inline T& FixedStack<T, CAPACITY>::operator[](unsigned int index) 
     {
         assert(index < size);
         return data[index];
@@ -462,46 +358,6 @@ namespace DS::Internal
     uint32_t FixedQueue<T, CAPACITY>::Capacity() const
     {
         return CAPACITY;
-    }
-
-    template<typename T>
-    inline uint64_t ArrayView<T>::Size() const
-    {
-        return size;
-    }
-    template<typename T>
-    inline bool ArrayView<T>::IsEmpty() const
-    {
-        return size == 0 || data == nullptr;
-    }
-    template<typename T>
-    inline T& ArrayView<T>::operator[](uint64_t index)
-    {
-        assert(index < size && "ArrayView out of scope");
-        return data[index];
-    }
-    template<typename T>
-    inline const T& ArrayView<T>::operator[](uint64_t index) const
-    {
-        assert(index < size && "ArrayView out of scope");
-        return data[index];
-    }
-
-    template<typename T>
-    inline uint64_t ArrayViewConst<T>::Size() const
-    {
-        return size;
-    }
-    template<typename T>
-    inline bool ArrayViewConst<T>::IsEmpty() const
-    {
-        return size == 0 || data == nullptr;
-    }
-    template<typename T>
-    inline T ArrayViewConst<T>::operator[](uint64_t index) const
-    {
-        assert(index < size && "ArrayView out of scope");
-        return data[index];
     }
 
     template<typename T>
@@ -642,7 +498,7 @@ namespace DS::Internal
 
 
     //MemoryArena Implementation
-    inline MemoryArena::MemoryArena(uint64_t bytes)
+    inline MemoryArena::MemoryArena(uint64_t bytes) 
         : capacity(bytes), current_offset(0), data(new char[bytes])
     {
         assert(data); //Over Capacity
@@ -669,7 +525,7 @@ namespace DS::Internal
         assert((alignment & (alignment - 1)) == 0 && "Alignment must be power of 2");
         alignment--;
         current_offset = (current_offset + alignment) & ~alignment;
-        uint64_t new_offset = current_offset + bytes;
+        uint64_t new_offset = current_offset + bytes; 
         if(new_offset <= capacity)
         {
             void* ptr = (data + current_offset);
@@ -682,7 +538,7 @@ namespace DS::Internal
     inline T* MemoryArena::NewArray(uint64_t count)
     {
         assert(count && "0 count");
-        T* temp = (T*)Allocate(count * sizeof(T), alignof(T));
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
         if(!temp) return nullptr;
         //initialize
         for(uint64_t i = 0; i<count; i++)
@@ -693,26 +549,16 @@ namespace DS::Internal
     inline T* MemoryArena::NewArrayZero(uint64_t count)
     {
         assert(count && "0 count");
-        T* temp = (T*)Allocate(count * sizeof(T), alignof(T));
+        T* temp = (T*)Allocate(count * sizeof(T), alignof(T)); 
         if(!temp) return nullptr;
         //initialize
         memset(temp, 0, count * sizeof(T));
         return temp;
     }
     template<typename T>
-    inline T* MemoryArena::NewArrayCopy(const T* src, uint64_t count)
-    {
-        assert(count && "0 count");
-        T* temp = (T*)Allocate(count * sizeof(T), alignof(T));
-        if(!temp) return nullptr;
-        //initialize
-        memcpy(temp, src, count * sizeof(T));
-        return temp;
-    }
-    template<typename T>
     inline T* MemoryArena::New()
     {
-        T* temp = (T*)Allocate(sizeof(T), alignof(T));
+        T* temp = (T*)Allocate(sizeof(T), alignof(T)); 
         if(!temp) return nullptr;
         *temp = T();
         return temp;
@@ -720,7 +566,7 @@ namespace DS::Internal
     template<typename T>
     inline T* MemoryArena::New(const T& value)
     {
-        T* temp = (T*)Allocate(sizeof(T), alignof(T));
+        T* temp = (T*)Allocate(sizeof(T), alignof(T)); 
         if(!temp) return nullptr;
         *temp = value;
         return temp;
@@ -732,7 +578,7 @@ namespace DS::Internal
         assert(ptr >= data && ptr < data + capacity);
         uint64_t new_offset = ((char*)ptr - data);
         if(new_offset < current_offset)
-            current_offset = new_offset;
+            current_offset = new_offset; 
     }
     inline void MemoryArena::Reset()
     {
@@ -772,12 +618,7 @@ namespace DS::Internal
     template<typename T>
     inline typename ArenaLL<T>::Node* ArenaLL<T>::GetHead()
     {
-        return head;
-    }
-    template<typename T>
-    inline typename ArenaLL<T>::Node* ArenaLL<T>::GetTail()
-    {
-        return tail;
+        return head; 
     }
     template<typename T>
     inline bool ArenaLL<T>::PopHead()
@@ -835,7 +676,7 @@ namespace DS::Internal
     {
         if(!key || data == nullptr)
             return nullptr; //key should never be 0
-
+        
         int index = key % cap1;
         if(data[index].key == 0)
         {

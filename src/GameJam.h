@@ -7,9 +7,61 @@
 
 
 constexpr uint64_t MAX_ENTITY = 128;
+constexpr int WORLD_WIDTH = 256;
 
 namespace gj
 {
+    struct BlockWorld
+    {
+        void InitTexture()
+        {
+            // std::cout<<"Test1\n";
+            texture.InitTexture(data, GetWidth(), GetHeight(), PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+            // std::cout<<"Test2\n";
+        }
+        void Draw()
+        {
+            DrawTexture(texture.GetTexture(), 0, 0, WHITE);
+        }
+        gx::Texture texture;
+        Color data[WORLD_WIDTH * WORLD_WIDTH]{};
+        void SetBlock(ivec2 pos, Color color)
+        {
+            if(pos.x < WORLD_WIDTH && pos.x >= 0 && pos.y < WORLD_WIDTH && pos.y >= 0)
+                data[pos.x + WORLD_WIDTH * pos.y] = color;
+        }
+        void SetBlock(vec2 pos, Color color) { SetBlock(ivec2((float)pos.x, (float)pos.y), color); }
+        Color GetBlock(vec2 pos)
+        {
+            int x = (int)pos.x, y = (int)pos.y;
+            if(x < WORLD_WIDTH && x >= 0 && y < WORLD_WIDTH && y >= 0)
+                return data[x + WORLD_WIDTH * y];
+            return Color{};
+        }
+        int GetWidth() const { return WORLD_WIDTH; }
+        int GetHeight() const { return WORLD_WIDTH; }
+    };
+
+    struct Camera
+    {
+        vec2 target;
+        vec2 pos;
+        float zoom = 1;
+        void Update()
+        {
+            pos += (target - pos) * GetFrameTime() * 5;
+        }
+        ::Camera2D GetCamera() const
+        {
+            ::Camera2D r{};
+            r.offset = {(float)GetScreenWidth()/2 - 200, (float)GetScreenHeight()/2 + 8};
+            r.target = {pos.x, pos.y};
+            r.zoom = zoom;
+            return r;
+        }
+    };
+
+
     template<uint64_t CAPACITY> class GameManager;
     inline vec2 Reflect(vec2 a, vec2 normal)
     {
@@ -21,19 +73,11 @@ namespace gj
 
 
     template<typename T, unsigned int CAPACITY>
-    using FixedStack = UI::Internal::FixedStack<T, CAPACITY>;
+    using FixedStack = DS::Internal::FixedStack<T, CAPACITY>;
 
     template<typename T, unsigned int CAPACITY>
-    using FixedQueue = UI::Internal::FixedQueue<T, CAPACITY>;
+    using FixedQueue = DS::Internal::FixedQueue<T, CAPACITY>;
 
-    enum Component : uint64_t
-    {
-        VISIBLE,
-        TEXTURE,
-        PHYSICS,
-        COLLISION,
-        LIFETIME,
-    };
 
     class AnimatedSprite
     {
@@ -44,7 +88,7 @@ namespace gj
         int GetCurrentFrame();
     public:
         gx::Texture texture;
-        AnimatedSprite(const char* file);
+        void InitAnimatedSprite(const char* texture_file);
         void Update();
         void AddFrame(const std::string& name, Rect src);
         void PlayAnim(const std::string& name);
@@ -56,7 +100,18 @@ namespace gj
     {
         DEFAULT,
         PLAYER,
-        FLAME_PARTICLE
+        FLAME_PARTICLE,
+        BLOCK_WORLD,
+        EXPLODE_PARTICLE,
+        SEED,
+    };
+    enum Component : uint64_t
+    {
+        VISIBLE,
+        TEXTURE,
+        PHYSICS,
+        COLLISION,
+        LIFETIME,
     };
     struct Entity
     {
@@ -67,6 +122,9 @@ namespace gj
 
 
         void (*OnUpdate)(Entity& self, GameManager<MAX_ENTITY>* manager) = nullptr;
+        bool (*OnCollision)(Entity& self, Entity& other, GameManager<MAX_ENTITY>* manager) = nullptr;
+        void (*OnDetection)(Entity& self, Entity& other, GameManager<MAX_ENTITY>* manager) = nullptr;
+        void (*OnKill)(Entity& self) = nullptr;
 
         //physics
         vec2 gravity;
@@ -76,7 +134,6 @@ namespace gj
         float mass = 0;
 
 
-        Entity* other_collide = nullptr;
         //shape
         float width = 0;
         float height = 0;
@@ -87,10 +144,14 @@ namespace gj
 
         //Life
         float lifetime_remaining = 0;
+        float lifetime_total = 0;
         bool should_kill = false;
 
+        //Block
+        BlockWorld* block_world;
 
         //Add/Remove components
+        void AddComponentDetection(float width, float height);
         void AddComponentCollision(float width, float height);
         void AddComponentPhysics(vec2 gravity, float mass, float bounce);
         void AddComponentVisible();
@@ -113,10 +174,11 @@ namespace gj
     {
         uint64_t total_entities = 0;
         FixedStack<int, CAPACITY> entity_stack{};
-        FixedQueue<Entity, 16> queue{};
+        FixedQueue<Entity, 32> queue{};
         Entity entities[CAPACITY]{}; //first index is player
         void AddEntity_(Entity e);
     public:
+        void Reset();
         Entity& player = entities[0]; //THIS IS AWFUL BUT I NEED TO FINISH AND NOT THINK
         GameManager();
 
@@ -125,6 +187,7 @@ namespace gj
         void DestroyEntity(const Entity& e);
 
         //Updating entities
+        void UpdateDetection();
         void UpdateAll();
         void UpdateKill();
         void UpdatePhysics();
@@ -136,10 +199,8 @@ namespace gj
 
 
     // I SPAMMED THIS :(
-    inline void SolveCollision(Entity& a, Entity& b)
+    inline void SolveCollision(Entity& a, Entity& b, GameManager<MAX_ENTITY>* manager)
     {
-        a.other_collide = &b;
-        b.other_collide = &a;
         auto FinalVelocity = [&](float v1, float m1, float v2, float m2, float e) -> float
         {
             float total_mass = m1 + m2;
@@ -149,6 +210,16 @@ namespace gj
 
         CollideShape(a.GetRect(), b.GetRect(), [&](vec2 normal, float distance)
         {
+            if(a.OnCollision)
+            {
+                if(!a.OnCollision(a, b, manager))
+                    return;
+            }
+            if(b.OnCollision)
+            {
+                if(!b.OnCollision(b, a, manager))
+                    return;
+            }
             float inv_mass = a.mass > 0.0f && b.mass > 0.0f? 1.0/(a.mass + b.mass): 0.0f;
 
             bool a_phys = a.HasComponent(Component::PHYSICS);
@@ -192,12 +263,12 @@ namespace gj
 
             if(a_phys)
             {
-                a_amount += 0.01;
+                a_amount += 0.001;
                 a.pos += normal * distance * a_amount; //correcting position
             }
             if(b_phys)
             {
-                b_amount += 0.01;
+                b_amount += 0.001;
                 b.pos -= normal * distance * b_amount; //correcting position
             }
         });
@@ -209,9 +280,9 @@ namespace gj
 namespace gj
 {
 
-    inline AnimatedSprite::AnimatedSprite(const char* file) : texture(file), current_state("none")
+    inline void AnimatedSprite::InitAnimatedSprite(const char* texture_file)
     {
-
+        texture.InitTexture(texture_file);
     }
     inline int AnimatedSprite::GetCurrentFrame()
     {
@@ -229,6 +300,8 @@ namespace gj
     }
     inline void AnimatedSprite::PlayAnim(const std::string& name)
     {
+        if(current_state != name)
+            time = 0;
         current_state = name;
     }
     inline void AnimatedSprite::Draw(vec2 pos, float rotation, vec2 scale, bool flip)
@@ -248,7 +321,7 @@ namespace gj
             result.width = -src.width;
             src = result;
         }
-        DrawTexturePro(texture.GetTexture(), {src.x, src.y, src.width, src.height}, {pos.x, pos.y, scale.x * width, scale.y * height}, {0, 0}, 0, WHITE);
+        DrawTexturePro(texture.GetTexture(), {src.x, src.y, src.width, src.height}, {pos.x, pos.y, scale.x * width, scale.y * height}, {0, 0}, 0, {255, 233, 233, 255});
     }
 
 
@@ -276,6 +349,7 @@ namespace gj
     {
         SetComponentFlags(Component::LIFETIME, true);
         lifetime_remaining = time;
+        lifetime_total = time;
     }
 
     inline void Entity::Kill()
@@ -328,6 +402,16 @@ namespace gj
     }
 
     template<uint64_t CAPACITY>
+    inline void GameManager<CAPACITY>::Reset()
+    {
+        for(Entity& e: entities)
+            e = Entity();
+        total_entities = 0;
+        entity_stack.Clear();
+        queue.Clear();
+    }
+
+    template<uint64_t CAPACITY>
     inline int GameManager<CAPACITY>::Size() const
     {
         return CAPACITY - entity_stack.Size();
@@ -349,7 +433,7 @@ namespace gj
             entity_stack.Pop();
             e.id = ++total_entities;
             entities[i] = e;
-            std::cout<<"Entity Created " << Size() <<'/' << CAPACITY<<"\n";
+            //std::cout<<"Entity Created " << Size() <<'/' << CAPACITY<<"\n";
             return;
         }
         //assert(0 && "Entity Manager Out of memory");
@@ -373,11 +457,11 @@ namespace gj
         {
             if(e.OnUpdate)
                 e.OnUpdate(e, this);
-            e.other_collide = nullptr;
         }
         UpdateKill();
         UpdateLifetimes();
         UpdatePhysics();
+        UpdateDetection();
         UpdateCollisions();
     }
     template<uint64_t CAPACITY>
@@ -389,13 +473,17 @@ namespace gj
         {
             if(entities[i].should_kill == true)
             {
+                Entity& e = entities[i];
+                if(e.OnKill)
+                    e.OnKill(e);
                 assert(!entity_stack.IsFull() && "You messed up the killing");
                 entity_stack.Push(i);
                 entities[i] = Entity{};
-                std::cout<<"Entity Killed " << Size() <<'/' << CAPACITY<<"\n";
+                //std::cout<<"Entity Killed " << Size() <<'/' << CAPACITY<<"\n";
             }
         }
     }
+
     template<uint64_t CAPACITY>
     inline void GameManager<CAPACITY>::UpdatePhysics()
     {
@@ -409,11 +497,29 @@ namespace gj
 
                 float speed = length(e.vel);
                 e.vel.x -= 0.001f * e.vel.x * abs(e.vel.x) * GetFrameTime() * 2;
-                e.vel.x -= sign(e.vel.x) * GetFrameTime() * 50;
+                e.vel.x -= sign(e.vel.x) * GetFrameTime() * 5;
 
             }
         }
     }
+
+    template<uint64_t CAPACITY>
+    inline void GameManager<CAPACITY>::UpdateDetection()
+    {
+        for(Entity& a : entities)
+        {
+            if(a.OnDetection)
+            {
+                for(Entity& b : entities)
+                {
+                    if(a.id == b.id)
+                        continue;
+                    a.OnDetection(a, b, this);
+                }
+            }
+        }
+    }
+
     template<uint64_t CAPACITY>
     inline void GameManager<CAPACITY>::UpdateCollisions()
     {
@@ -425,7 +531,7 @@ namespace gj
             {
                 if(!b.HasComponent(Component::COLLISION) || a.id == b.id)
                     continue;
-                SolveCollision(a, b);
+                SolveCollision(a, b, this);
             }
         }
 
