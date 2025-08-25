@@ -1,3 +1,9 @@
+
+//Getting rid of console logging
+// #if defined(WIN32) && !defined(_DEBUG)
+//     #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+// #endif
+
 #include <raylib/raylib.h>
 #include <raylib/rlgl.h>
 
