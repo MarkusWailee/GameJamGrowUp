@@ -11,6 +11,7 @@
 //The code is obviously awful so please no judge
 
 //All game logic will just be in the main function
+constexpr int MY_BEST = 24000;
 enum Menu
 {
     PAUSE,
@@ -40,7 +41,7 @@ int GetHighScore() //this was a last minute thought;
 }
 int GetScore() //this was a last minute thought;
 {
-    return current_score - GetGeneratedScore();
+    return current_score;
 }
 namespace Player
 {
@@ -90,8 +91,10 @@ constexpr int FONT_SIZE1 = 64;
 constexpr int FONT_SIZE2 = 96;
 constexpr int FONT_SIZE3 = 160;
 constexpr UI::Color GOLD0 = {225, 185, 20, 255};
+constexpr UI::Color ORANGE0 = {255, 127, 80, 255};
 constexpr UI::Color BLACK0 = {30, 30, 30, 255};
 constexpr UI::Color GREEN0 = {20, 220, 20, 255};
+constexpr UI::Color RED0 = {216, 82, 75, 255};
 constexpr UI::Color GREEN1 = {100, 255, 100, 255};
 constexpr UI::Color PURPLE0 = {80, 80, 220, 255};
 constexpr UI::Color PURPLE1 = {100, 100, 255, 255};
@@ -99,6 +102,20 @@ constexpr UI::Color PURPLE1 = {100, 100, 255, 255};
 void WinMenu(UI::Context* ui);
 void StartMenu(UI::Context* ui);
 void PlayMenu(UI::Context* ui);
+UI::Color GetScoreColor(int amount)
+{
+    if(amount <= 50)
+        return RED0;
+    else if(amount <= 75)
+        return ORANGE0;
+    else if(amount <= 100)
+        return GREEN1;
+    else if(amount > 100)
+        return PURPLE1;
+    else
+        return RED0;
+}
+
 
 bool DisableCollisions(gj::Entity& a, gj::Entity& b, gj::GameManager<MAX_ENTITY>* m)
 {
@@ -125,33 +142,22 @@ bool DefaultBox_OnCollision(gj::Entity& self, gj::Entity& other, gj::GameManager
 int main(void)
 {
 
-    float screenWidth = 960;
-    float screenHeight = 600;
+    float screenWidth = 1080;
+    float screenHeight = 680;
 
 
 
     SetConfigFlags(FLAG_MSAA_4X_HINT);
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    InitWindow(screenWidth, screenHeight, "Grow Rush");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
     rlDisableBackfaceCulling();
 
 
-    gx::Shader shader;
-    shader.InitShader(nullptr, "assets/shader/PixelWorld.frag");
 
 
-
-
-
-
-
-//C:\Users\markus\Projects\cpp\GameJamIdea\assets\font\Roboto-Regular.ttf
     UI::Init_impl("assets/font/Tiny5-Regular.ttf");
-
     UI::Context ui(1 * UI::MB);
-
-
 
     InitGame();
 
@@ -168,7 +174,9 @@ int main(void)
             current_score = 0;
             for(Color c : world.data)
                 AddLife(c);
-            current_score /= 100;
+
+            current_score -= GetGeneratedScore();
+            current_score /= MY_BEST;
         }
         compute_score++;
         if(IsKeyPressed(KEY_F))
@@ -198,7 +206,7 @@ int main(void)
         //ClearBackground(Color{30, 30, 40, 255});
         vec3 c1 = vec3{30, 30, 40};
         vec3 c2 = vec3(103 ,149 ,156);
-        vec3 r = mix(c1, c2, min((float)GetScore() / 18000, 1.0f));
+        vec3 r = mix(c1, c2, min((float)GetScore() / 100, 1.0f));
         ClearBackground(Color{(unsigned char)r.x, (unsigned char)r.y, (unsigned char)r.z, 255});
 
 
@@ -240,7 +248,7 @@ void InitGame()
 
     gj::Entity bounds;
     bounds.AddComponentVisible();
-    bounds.color = BLACK;
+    bounds.color = {50, 50, 50, 50};
     bounds.AddComponentCollision(world.GetWidth(), 1);
 
     //top
@@ -371,9 +379,9 @@ namespace Player
                 manager.AddEntity(e);
             }
         }
-        if(IsMouseButtonDown(MOUSE_LEFT_BUTTON) && timer2 <= 0)
+        if(IsMouseButtonDown(MOUSE_LEFT_BUTTON) && timer2 <= 0 || IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
-            timer2 = 0.2;
+            timer2 = 0.3;
             gj::Entity e;
             e.AddComponentCollision(2,2);
             e.AddComponentVisible();
@@ -381,7 +389,7 @@ namespace Player
             e.color = GOLD;
             Vector2 m = GetWorldToScreen2D({player.pos.x, player.pos.y}, camera.GetCamera());
             vec2 dir = normalize(vec2((float)GetMouseX(), (float)GetMouseY()) - vec2(m.x, m.y));
-            e.pos = player.pos + dir * 10;
+            e.pos = player.pos + vec2(4,4) + dir * 10;
             e.vel = dir * 100;
             e.OnKill = Seed::Onkill;
             e.OnCollision = Seed::OnCollision;
@@ -480,6 +488,8 @@ namespace World
         float h = (float)world.GetHeight();
         auto GenColor = [&](vec2 p) -> Color
         {
+            //vec2 uv = p / vec2(w,h) * 2 - vec2(1,1);
+            //uv.x /= 2;
             vec4 c1 = {50, 50, 50, 255};
             vec4 c2 = {33, 33, 49, 255};
             float result = CanPlace(p);
@@ -496,8 +506,8 @@ namespace World
                 world.SetBlock(ivec2{x, y}, c);
                 AddLife(c);
             }
-        current_score /= 100;
         generated_score = current_score;
+        current_score = 0;
     }
 }
 
@@ -693,6 +703,7 @@ namespace Seed
 
 void WinMenu(UI::Context* ui)
 {
+
     UI::BoxStyle root =
     {
         .flow =
@@ -728,12 +739,23 @@ void WinMenu(UI::Context* ui)
         .border_color = BLACK0,
         .border_width = 2,
     };
-    int size = GetScreenHeight() < 600? FONT_SIZE0: FONT_SIZE1;
+    bool resize = GetScreenWidth() < 1000 || GetScreenHeight() < 600;
+    int size = resize ? FONT_SIZE0: FONT_SIZE1;
     UI::Root(ui, root, [&]
     {
         UI::InsertText(UI::Fmt("[S:%d]Times Up!", FONT_SIZE3));
-        UI::InsertText(UI::Fmt("[S:%d]HighScore %d", FONT_SIZE1, GetHighScore()));
-        UI::InsertText(UI::Fmt("[S:%d]Score %d", FONT_SIZE1, GetScore()));
+        float scale = (float)GetScore();
+        if(scale <= 50)
+            UI::InsertText(UI::Fmt("[S:%d][C:%s]Not Bad!", size, UI::RGBAToHex(GetScoreColor(scale))));
+        else if(scale <= 75)
+            UI::InsertText(UI::Fmt("[S:%d][C:%s]Good!", size, UI::RGBAToHex(GetScoreColor(scale))));
+        else if(scale <= 100)
+            UI::InsertText(UI::Fmt("[S:%d][C:%s]EXCELLENT!", size, UI::RGBAToHex(GetScoreColor(scale))));
+        else if(scale > 100)
+            UI::InsertText(UI::Fmt("[S:%d][C:%s]OUTSTANDING!", size, UI::RGBAToHex(GetScoreColor(scale))));
+        UI::InsertText(UI::Fmt("[S:%d]Highscore [C:%s]%d%%", size, UI::RGBAToHex(GetScoreColor(GetHighScore())), GetHighScore()));
+        UI::InsertText(UI::Fmt("[S:%d]Score [C:%s]%d%%", size, UI::RGBAToHex(GetScoreColor(GetScore())), GetScore()));
+
         UI::Box().Style(base).Run([&]
         {
             UI::Box("play-button").Style(button)
@@ -801,11 +823,25 @@ void StartMenu(UI::Context* ui)
         .border_color = BLACK0,
         .border_width = 2,
     };
-    int size = GetScreenHeight() < 600? FONT_SIZE0: FONT_SIZE1;
+    UI::BoxStyle floating =
+    {
+
+        .x = 30,
+        .y = GetScreenHeight() - 80,
+        .width = {100, UI::Unit::CONTENT_PERCENT},
+        .detach = UI::Detach::ABSOLUTE
+    };
+
+    bool resize = GetScreenWidth() < 1000 || GetScreenHeight() < 600;
+    int size = resize? FONT_SIZE0: FONT_SIZE1;
     UI::Root(ui, root, [&]
     {
-        UI::InsertText(UI::Fmt("[S:%d]Grow Up", FONT_SIZE3));
-        UI::InsertText(UI::Fmt("[S:%d]highscore %d", FONT_SIZE0, GetHighScore()));
+        UI::Box().Style(floating).Run([&]
+        {
+            UI::InsertText(UI::Fmt("[S:%d]GROW UP Game Jam\n24 August 2025", size / 2));
+        });
+        UI::InsertText(UI::Fmt("[S:%d]Grow Rush", FONT_SIZE3));
+        UI::InsertText(UI::Fmt("[S:%d]Highscore [C:%s]%d%%", FONT_SIZE1, UI::RGBAToHex(GetScoreColor(GetHighScore())), GetHighScore()));
         UI::Box().Style(base).Run([&]
         {
             UI::Box("play-button").Style(button)
@@ -832,6 +868,7 @@ void StartMenu(UI::Context* ui)
                 {
                     Restart();
                     UpdateGame();
+                    menu = PLAYING;
                 }
             })
             .Run([&]{
@@ -908,7 +945,8 @@ void PlayMenu(UI::Context* ui)
         .width = UI::Unit(80, UI::Unit::PARENT_PERCENT),
     };
 
-    int size = GetScreenHeight() < 600? FONT_SIZE0: FONT_SIZE1;
+    bool resize = GetScreenWidth() < 1000 || GetScreenHeight() < 600;
+    int size = resize ? FONT_SIZE0: FONT_SIZE1;
     UI::Root(ui, root, [&]
     {
         UI::Box().Style(button).Run([&]
