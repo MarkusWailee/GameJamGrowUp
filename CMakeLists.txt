@@ -1,9 +1,16 @@
-cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
+cmake_minimum_required(VERSION 3.15) # FetchContent is available in 3.11+
 
 set(CMAKE_CXX_STANDARD 20) # c++ version
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 project(GrowRush)
+if(MSVC)
+    add_compile_options(
+        $<$<CONFIG:>:/MT> #---------|
+        $<$<CONFIG:Debug>:/MTd> #---|-- Statically link the runtime libraries
+        $<$<CONFIG:Release>:/MT> #--|
+    )
+endif()
 
 # Generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -25,7 +32,7 @@ if (NOT raylib_FOUND) # If there's none, fetch and build raylib
   endif()
 endif()
 
-# Our Project
+# -----------------------------------------------------
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
@@ -36,6 +43,9 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/assets $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets)
 
+# this statically links all standard libraries if in release mode.
+# ideally this will maximize compatibility.
+# -----------------------------------------------------
 
 
 

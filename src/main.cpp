@@ -1,15 +1,15 @@
 
 //Getting rid of console logging
-// #if defined(WIN32) && !defined(_DEBUG)
-//     #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
-// #endif
+#if defined(WIN32) && !defined(_DEBUG)
+    #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
+#endif
 
 #include <raylib/raylib.h>
-#include <raylib/rlgl.h>
 
 #include "GameJam.h"
 #include "math/vec.h"
 #include "ui/ui.hpp"
+
 
 
 
@@ -157,7 +157,6 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "Grow Rush");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
-    rlDisableBackfaceCulling();
 
 
 
