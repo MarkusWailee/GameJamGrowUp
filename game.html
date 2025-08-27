@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <title>My Game</title>
+    <style>
+      html, body {
+        box-sizing: content-box;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: black;
+      }
+      canvas.emscripten {
+        box-sizing: content-box;
+        padding: 0;
+        border: 0;
+        display: block;
+        margin: 0px auto;
+        background-color: black;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+
+    <script type="text/javascript">
+      var canvas = document.getElementById('canvas');
+
+      canvas.addEventListener("webglcontextlost", (e) => {
+        alert('WebGL context lost. Reload the page.');
+        e.preventDefault();
+      }, false);
+
+      var Module = {
+        canvas: canvas,
+        print: () => {},
+        printErr: () => {},
+        setStatus: () => {},
+        monitorRunDependencies: () => {}
+      };
+
+      function resizeCanvas() {
+          // Match canvas CSS size to window size
+          canvas.style.width = window.innerWidth + 'px';
+          canvas.style.height = window.innerHeight + 'px';
+
+          // Also update Emscripten canvas so it knows about the new size
+          if (Module.canvas) {
+              Module.canvas.width = window.innerWidth;
+              Module.canvas.height = window.innerHeight;
+          }
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+    </script>
+
+    {{{ SCRIPT }}}
+  </body>
+</html>

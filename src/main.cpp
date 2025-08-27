@@ -4,6 +4,11 @@
     #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
 
+#if PLATFORM_WEB
+    #include <emscripten/emscripten.h>      // For EM_ASM macros
+    #include <emscripten/html5.h>           // For emscripten_get_element_css_size
+#endif
+
 #include <raylib/raylib.h>
 
 #include "GameJam.h"
@@ -27,7 +32,7 @@ enum Menu
 };
 gj::GameManager<128> manager;
 gj::Camera camera;
-vec2 reset_pos = {64, 96};
+vec2 reset_pos = {(float)WORLD_WIDTH/2, (float)WORLD_WIDTH/2};
 const float MAX_TIME = 30;
 float score_timer = 0;
 int highscore = 0;
@@ -144,18 +149,16 @@ bool DefaultBox_OnCollision(gj::Entity& self, gj::Entity& other, gj::GameManager
 
 
 
-
 int main(void)
 {
 
     float screenWidth = 1080;
-    float screenHeight = 680;
+    float screenHeight = 720;
 
 
 
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
     InitWindow(screenWidth, screenHeight, "Grow Rush");
-    SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
 
 
@@ -172,6 +175,13 @@ int main(void)
     uint64_t compute_score = 0;
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
+        //My quick fix to mouse positioning
+        #if PLATFORM_WEB
+            screenWidth = EM_ASM_INT({return Module.canvas.width;}, 0);
+            screenHeight = EM_ASM_INT({return Module.canvas.height;}, 0);
+            SetWindowSize(screenWidth, screenHeight);
+        #endif
+
         //Last minute computing score. Just adds up all color values
         if(compute_score > 500 && score_timer < MAX_TIME)
         {
@@ -317,7 +327,11 @@ namespace Player
 {
     void Init()
     {
-        player_asset.InitAnimatedSprite("assets/texture/character.png");
+        //player_asset.InitAnimatedSprite("assets/texture/character.png");
+        player_asset.texture.InitTexture("assets/texture/character.png");
+        if(!IsTextureValid(player_asset.texture.GetTexture()))
+            player_asset.texture.InitTexture("assets/texture/character.PNG"); //web assembly issue
+
         player.pos.x = 64;
         player.pos.y = 64;
 
@@ -416,7 +430,7 @@ namespace Player
         camera.target = player.pos;
         camera.Update();
         player_asset.Update();
-        if (player.pos.y > 256 )
+        if (player.pos.y > WORLD_WIDTH )
             player.pos = vec2(64, 0);
 
     }
@@ -899,8 +913,11 @@ void StartMenu(UI::Context* ui)
             .OnHover([&]
             {
                 UI::Style().background_color = GOLD0;
+
+                #if !PLATFORM_WEB
                 if(UI::IsMouseReleased(UI::MOUSE_LEFT))
                     exit(0);
+                #endif
             })
             .Run([&]{
                 UI::InsertText(UI::Fmt("[S:%d]Quit", size));

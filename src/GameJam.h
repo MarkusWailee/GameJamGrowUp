@@ -21,7 +21,8 @@ namespace gj
         }
         void Draw()
         {
-            DrawTexture(texture.GetTexture(), 0, 0, WHITE);
+            if(IsTextureValid(texture.GetTexture()))
+                DrawTexture(texture.GetTexture(), 0, 0, WHITE);
         }
         gx::Texture texture;
         Color data[WORLD_WIDTH * WORLD_WIDTH]{};
@@ -308,7 +309,7 @@ namespace gj
     {
         if(current_state == "none" || !IsTextureValid(texture.GetTexture()))
         {
-            DrawRectangle(pos.x, pos.y, 100, 100, PURPLE);
+            DrawRectangle(pos.x, pos.y, 8 * scale.x, 8 * scale.y, WHITE);
             return;
         }
         Rect src = map[current_state][this->GetCurrentFrame()];

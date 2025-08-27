@@ -57,6 +57,18 @@ target_link_libraries(${PROJECT_NAME} raylib)
 if (${PLATFORM} STREQUAL "Web")
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html") # Tell Emscripten to build an example.html file.
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s ASSERTIONS=1 -s WASM=1 -s ASYNCIFY -s GL_ENABLE_GET_PROC_ADDRESS=1")
+
+    # This is what I used for compiling to web
+    # cd C:\emsdk
+    # .\emsdk activate latest
+    # emcmake cmake .. -G "MinGW Makefiles" -DBUILD_SHARED_LIBS=OFF -DPLATFORM=Web
+    # cmake --build . --config Release
+    # emrun --no_browser --port 8080 .
+    # Loading my assets into folder
+    set(ASSET_DIR "${PROJECT_SOURCE_DIR}/assets")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        LINK_FLAGS "--preload-file ${ASSET_DIR}@/assets --shell-file ${CMAKE_SOURCE_DIR}/game.html"
+    )
 endif()
 
 # Checks if OSX and links appropriate frameworks (Only required on MacOS)
@@ -65,5 +77,4 @@ if (APPLE)
     target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
     target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
 endif()
-
 

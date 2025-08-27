@@ -175,7 +175,7 @@ namespace gx
     }
     inline ::Texture Texture::GetTexture()
     {
-        assert(IsTextureValid(this->texture));
+        //assert(IsTextureValid(this->texture)); //This broke on web assembly
         return this->texture;
     }
 
